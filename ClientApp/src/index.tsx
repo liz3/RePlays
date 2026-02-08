@@ -15,6 +15,12 @@ enum BookmarkType {
   Kill,
   Death,
   Assist,
+  Turret,
+  Inhib,
+  Dragon,
+  Baron,
+  Herald,
+  VoidGrubs
 }
 (window as { BookmarkType?: typeof BookmarkType }).BookmarkType = BookmarkType;
 
@@ -93,10 +99,16 @@ declare global {
     time: number;
   }
   enum BookmarkType { // this exact same enum is to stop typescript IntelliSense from complaining
-    Manual,
-    Kill,
-    Death,
-    Assist,
+  Manual,
+  Kill,
+  Death,
+  Assist,
+  Turret,
+  Inhib,
+  Dragon,
+  Baron,
+  Herald,
+  VoidGrubs
   }
   // userSettings
   interface UserSettings {

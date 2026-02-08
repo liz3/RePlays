@@ -41,15 +41,31 @@ namespace RePlays.Services {
             }
         }
     }
-
+    public class LeagueMeta {
+        public enum TeamType {
+            Red,
+            Blue
+        }
+        public TeamType team { get; set; }
+        public string killerName { get; set; }
+        public string victimChamp { get; set; }
+    }
     public class Bookmark {
         public enum BookmarkType {
             Manual,
             Kill,
             Death,
-            Assist
+            Assist,
+            Turret,
+            Inhib,
+            Dragon,
+            Baron,
+            Herald,
+            VoidGrubs
         }
         public BookmarkType type { get; set; }
         public double time { get; set; }
+
+        public LeagueMeta? meta { get; set; }
     }
 }

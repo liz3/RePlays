@@ -8,6 +8,7 @@ body {
     'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
 }
 
 /* * Prevent dragging all HTML elements, specially:
@@ -99,3 +100,15 @@ code {
 /* *{ 
   outline: rgba(0, 0, 0, 0);  
 } */
+
+.bookmark-stackpane{
+
+  bottom: 100%;
+  left: -50%;
+  overflow: hidden;
+  position: relative;
+}
+.bookmark-stackpane img {
+  width: 50px;
+  height: auto;
+}

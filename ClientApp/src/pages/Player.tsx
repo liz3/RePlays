@@ -37,6 +37,8 @@ export const Player: React.FC<Props> = ({ videos }) => {
   const targetSeekElement = useRef<HTMLDivElement>(null);
 
   const [clips, setClips] = useState<Clip[]>([]);
+  const [champion, setChampion] = useState<string>(null);
+  const [popover, setPopOver] = useState(null);
   const [bookmarks, setBookmarks] = useState<BookmarkInterface[]>([]);
   const [currentZoom, setZoom] = useState(0);
   const [currentPlaybackRate, setPlaybackRate] = useState(1);
@@ -365,7 +367,11 @@ export const Player: React.FC<Props> = ({ videos }) => {
   function handleVideoLoad(e: SyntheticEvent) {
     let videoMetadata = JSON.parse(localStorage.getItem('videoMetadata')!);
     let videoMetadataBookmarks = JSON.parse(localStorage.getItem('videoMetadataBookmarks')!);
-
+    const info = videos.find(e => e.fileName === video);
+    if(info && info.metadata && info.metadata.champion)
+      setChampion(info.metadata.champion);
+    else
+      setChampion(null);
     if (videoElement.current && volumeSliderElement.current) {
       videoElement.current.volume = parseInt(volumeSliderElement.current.value) / 100;
       videoElement.current.play();
@@ -451,6 +457,19 @@ export const Player: React.FC<Props> = ({ videos }) => {
       </div>
 
       <div className='flex flex-initial h-20 grid grid-flow-row'>
+        {popover ? (
+          <div
+
+            style={{
+              position: 'absolute',
+              zIndex: 500,
+              left: bookmarksRef.current[popover.n].getBoundingClientRect().left,
+              top: bookmarksRef.current[popover.n].getBoundingClientRect().top - 90,
+            }}
+          >
+            {popover.comp}
+          </div>
+        ) : null}
         <div
           ref={timelineElement}
           className='w-full h-full overflow-x-scroll overflow-y-hidden bg-gray-400'
@@ -496,17 +515,37 @@ export const Player: React.FC<Props> = ({ videos }) => {
               })}
 
             {bookmarks &&
-              bookmarks.map((bookmark, i) => {
-                return (
-                  <Bookmark
-                    key={bookmark.id}
-                    ref={(e) => (bookmarksRef.current[i] = e!)}
-                    id={bookmark.id}
-                    time={bookmark.time}
-                    type={bookmark.type}
-                  />
-                );
-              })}
+              bookmarks
+                .reduce(
+                  (acc, val) => {
+                    if (acc.latest === null || val.time !== acc.latest) {
+                      acc.data.push(val);
+                      acc.latest = val.time;
+                    } else {
+                      if (!acc.data[acc.data.length - 1].stack)
+                        acc.data[acc.data.length - 1].stack = [];
+                      acc.data[acc.data.length - 1].stack.push(val);
+                    }
+                    return acc;
+                  },
+                  { data: [], latest: null },
+                )
+                .data.map((bookmark, i) => {
+                  return (
+                    <Bookmark
+                      n={i}
+                      key={i}
+                      ref={(e) => (bookmarksRef.current[i] = e!)}
+                      id={bookmark.id}
+                      time={bookmark.time}
+                      type={bookmark.type}
+                      meta={bookmark.meta}
+                      stack={bookmark.stack || []}
+                      setPopOver={setPopOver}
+                      champion={champion}
+                    />
+                  );
+                })}
           </div>
           <div
             ref={targetSeekElement}

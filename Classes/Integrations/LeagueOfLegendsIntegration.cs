@@ -1,6 +1,7 @@
 ﻿using RePlays.Services;
 using RePlays.Utils;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -15,10 +16,31 @@ namespace RePlays.Integrations {
         static Timer timer;
 
         public PlayerStats stats;
+        public List<int> trackedEvents;
 
+        private JsonElement? getPlayer(JsonElement allPlayers, JsonElement ev) {
+            if (allPlayers
+                     .EnumerateArray()
+                     .Any(playerElement => {
+
+                         return playerElement.GetProperty("riotIdGameName").GetString() == ev.GetProperty("KillerName").ToString() || (playerElement.GetProperty("championName").GetString() + " Bot") == ev.GetProperty("KillerName").ToString();
+                     })) {
+                return allPlayers
+                     .EnumerateArray()
+                     .FirstOrDefault(playerElement => {
+
+                         return playerElement.GetProperty("riotIdGameName").GetString() == ev.GetProperty("KillerName").ToString() || (playerElement.GetProperty("championName").GetString() + " Bot") == ev.GetProperty("KillerName").ToString();
+                     });
+            }
+            return null;
+        }
+        private string getChampName(JsonElement elem) {
+            return elem.GetProperty("rawChampionName").GetString().Replace("game_character_displayname_", "").Replace("FiddleSticks", "Fiddlesticks");
+        }
         public override Task Start() {
             Logger.WriteLine("Starting League Of Legends integration");
             stats = new PlayerStats();
+            trackedEvents = new List<int>();
             timer = new() {
                 Interval = 250,
             };
@@ -79,21 +101,83 @@ namespace RePlays.Integrations {
                         });
 
                     int currentKills = currentPlayer.GetProperty("scores").GetProperty("kills").GetInt32();
-                    if (currentKills != stats.Kills) {
-                        BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Kill });
-                        Console.WriteLine("Kills changed to: " + currentKills);
-                    }
-
                     int currentDeaths = currentPlayer.GetProperty("scores").GetProperty("deaths").GetInt32();
-                    if (currentDeaths != stats.Deaths) {
-                        BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Death });
-                        Console.WriteLine("Deaths changed to: " + currentDeaths);
-                    }
-
                     int currentAssists = currentPlayer.GetProperty("scores").GetProperty("assists").GetInt32();
-                    if (currentAssists != stats.Assists) {
-                        BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Assist });
-                        Console.WriteLine("Assists changed to: " + currentAssists);
+                    var gameEvents = root.GetProperty("events").GetProperty("Events").EnumerateArray().Where(element => !trackedEvents.Contains(element.GetProperty("EventID").GetInt32())).ToList();
+
+                    if (gameEvents.Count > 0) {
+                        foreach (var ev in gameEvents) {
+                            var eventName = ev.GetProperty("EventName").GetString();
+                            if (eventName == "ChampionKill") {
+                                JsonElement? killer = getPlayer(allPlayers, ev);
+                                if (killer != null) {
+                                    var victim = allPlayers
+                                                    .EnumerateArray()
+                                                    .FirstOrDefault(playerElement => {
+
+                                                        return playerElement.GetProperty("riotIdGameName").GetString() == ev.GetProperty("VictimName").ToString()
+                                                        || (playerElement.GetProperty("championName").GetString() + " Bot") == ev.GetProperty("VictimName").ToString();
+                                                    });
+                                    BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Kill, meta = new LeagueMeta { team = killer?.GetProperty("team").ToString() == "ORDER" ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red, killerName = getChampName((JsonElement)killer), victimChamp = getChampName(victim) } });
+                                    trackedEvents.Add(ev.GetProperty("EventID").GetInt32());
+                                }
+                            }
+                            else if (eventName == "TurretKilled") {
+                                var killer = getPlayer(allPlayers, ev);
+
+                                if (killer != null) {
+                                    BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Turret, meta = new LeagueMeta { team = ev.GetProperty("TurretKilled").ToString().StartsWith("Turret_TChaos") ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red, killerName = getChampName((JsonElement)killer) } });
+                                }
+                                else {
+                                    BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Turret, meta = new LeagueMeta { team = ev.GetProperty("TurretKilled").ToString().StartsWith("Turrt_TChaos") ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red } });
+
+                                }
+                                trackedEvents.Add(ev.GetProperty("EventID").GetInt32());
+                            }
+                            else if (eventName == "InhibKilled") {
+                                var killer = getPlayer(allPlayers, ev);
+
+                                if (killer != null) {
+
+                                    BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Inhib, meta = new LeagueMeta { team = ev.GetProperty("InhibKilled").ToString().StartsWith("Inhib_TChaos") ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red, killerName = getChampName((JsonElement)killer) } });
+
+                                }
+                                else {
+                                    BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Inhib, meta = new LeagueMeta { team = ev.GetProperty("InhibKilled").ToString().StartsWith("Inhib_TChaos") ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red } });
+
+                                }
+                                trackedEvents.Add(ev.GetProperty("EventID").GetInt32());
+
+                            }
+                            else if (eventName == "DragonKill") {
+                                var killer = getPlayer(allPlayers, ev);
+                                if (killer != null) {
+                                    BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Dragon, meta = new LeagueMeta { team = killer?.GetProperty("team").ToString() == "ORDER" ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red, killerName = getChampName((JsonElement)killer) } });
+                                }
+                                trackedEvents.Add(ev.GetProperty("EventID").GetInt32());
+                            }
+                            else if (eventName == "BaronKill") {
+                                var killer = getPlayer(allPlayers, ev);
+                                if (killer != null) {
+                                    BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Baron, meta = new LeagueMeta { team = killer?.GetProperty("team").ToString() == "ORDER" ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red, killerName = getChampName((JsonElement)killer) } });
+                                }
+                                trackedEvents.Add(ev.GetProperty("EventID").GetInt32());
+                            }
+                            else if (eventName == "HeraldKill") {
+                                var killer = getPlayer(allPlayers, ev);
+                                if (killer != null) {
+                                    BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Herald, meta = new LeagueMeta { team = killer?.GetProperty("team").ToString() == "ORDER" ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red, killerName = getChampName((JsonElement)killer) } });
+                                }
+                                trackedEvents.Add(ev.GetProperty("EventID").GetInt32());
+                            }
+                            else if (eventName == "HordeKill") {
+                                var killer = getPlayer(allPlayers, ev);
+                                if (killer != null) {
+                                    BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.VoidGrubs, meta = new LeagueMeta { team = killer?.GetProperty("team").ToString() == "ORDER" ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red, killerName = getChampName((JsonElement)killer) } });
+                                }
+                                trackedEvents.Add(ev.GetProperty("EventID").GetInt32());
+                            }
+                        }
                     }
 
                     stats.Kills = currentKills;

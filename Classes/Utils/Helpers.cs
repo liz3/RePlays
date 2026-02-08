@@ -710,6 +710,7 @@ namespace RePlays.Utils {
         }
 
         public static float CalculateStringSimilarity(string path1, string path2) {
+            if (Path.GetFileName(path1) == Path.GetFileName(path2)) return 1;
             int maxLength = Math.Max(path1.Length, path2.Length);
             int distance = GetDamerauLevenshteinDistance(path1, path2);
             float similarity = 1 - (float)distance / maxLength;

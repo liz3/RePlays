@@ -136,12 +136,18 @@ function App() {
         console.log(data);
         let videoMetadata = JSON.parse(localStorage.getItem('videoMetadataBookmarks')!);
 
-        let bookmarks: { id: number; type: BookmarkType; time: number }[] = [];
+        let bookmarks: { id: number; type: BookmarkType; time: number, meta: any }[] = [];
         const map = [
           BookmarkType.Manual,
           BookmarkType.Kill,
           BookmarkType.Death,
           BookmarkType.Assist,
+          BookmarkType.Turret,
+          BookmarkType.Inhib,
+          BookmarkType.Dragon,
+          BookmarkType.Baron,
+          BookmarkType.Herald,
+          BookmarkType.VoidGrubs
         ];
 
         data.bookmarks.forEach(function (bookmark: any) {
@@ -150,6 +156,7 @@ function App() {
             id: Date.now(),
             type: map[bookmark.type],
             time: timeToSet,
+            meta: bookmark.meta,
           });
         });
 
