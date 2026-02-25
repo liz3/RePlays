@@ -23,19 +23,22 @@ namespace RePlays.Integrations {
                      .EnumerateArray()
                      .Any(playerElement => {
 
-                         return playerElement.GetProperty("riotIdGameName").GetString() == ev.GetProperty("KillerName").ToString() || (playerElement.GetProperty("championName").GetString() + " Bot") == ev.GetProperty("KillerName").ToString();
+                         return playerElement.GetProperty("riotIdGameName").GetString() == ev.GetProperty("KillerName").ToString() || playerElement.GetProperty("summonerName").GetString() == ev.GetProperty("KillerName").ToString() || (playerElement.GetProperty("championName").GetString() + " Bot") == ev.GetProperty("KillerName").ToString();
                      })) {
                 return allPlayers
                      .EnumerateArray()
                      .FirstOrDefault(playerElement => {
 
-                         return playerElement.GetProperty("riotIdGameName").GetString() == ev.GetProperty("KillerName").ToString() || (playerElement.GetProperty("championName").GetString() + " Bot") == ev.GetProperty("KillerName").ToString();
+                         return playerElement.GetProperty("riotIdGameName").GetString() == ev.GetProperty("KillerName").ToString() || playerElement.GetProperty("summonerName").GetString() == ev.GetProperty("KillerName").ToString() || (playerElement.GetProperty("championName").GetString() + " Bot") == ev.GetProperty("KillerName").ToString();
                      });
             }
             return null;
         }
         private string getChampName(JsonElement elem) {
-            return elem.GetProperty("rawChampionName").GetString().Replace("game_character_displayname_", "").Replace("FiddleSticks", "Fiddlesticks");
+            var str = elem.GetProperty("rawChampionName").GetString();
+            if (str == "Character_Seraphine_Name")
+                return "Seraphine";
+            return str.Replace("game_character_displayname_", "").Replace("FiddleSticks", "Fiddlesticks");
         }
         public override Task Start() {
             Logger.WriteLine("Starting League Of Legends integration");
@@ -116,7 +119,8 @@ namespace RePlays.Integrations {
                                                     .FirstOrDefault(playerElement => {
 
                                                         return playerElement.GetProperty("riotIdGameName").GetString() == ev.GetProperty("VictimName").ToString()
-                                                        || (playerElement.GetProperty("championName").GetString() + " Bot") == ev.GetProperty("VictimName").ToString();
+                                                        || playerElement.GetProperty("summonerName").GetString() == ev.GetProperty("VictimName").ToString() ||
+                                                         (playerElement.GetProperty("championName").GetString() + " Bot") == ev.GetProperty("VictimName").ToString();
                                                     });
                                     BookmarkService.AddBookmark(new Bookmark { type = Bookmark.BookmarkType.Kill, meta = new LeagueMeta { team = killer?.GetProperty("team").ToString() == "ORDER" ? LeagueMeta.TeamType.Blue : LeagueMeta.TeamType.Red, killerName = getChampName((JsonElement)killer), victimChamp = getChampName(victim) } });
                                     trackedEvents.Add(ev.GetProperty("EventID").GetInt32());

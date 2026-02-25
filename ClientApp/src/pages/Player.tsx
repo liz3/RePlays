@@ -8,6 +8,7 @@ import { postMessage } from '../helpers/messenger';
 import UploadModal from '../components/UploadModal';
 import Bookmark from '../components/Bookmark';
 import { ContextMenuContext, ModalContext } from '../Contexts';
+import { useLatestLeagueVersion } from '../integrations/league';
 
 interface Props {
   videos: Video[];
@@ -38,6 +39,8 @@ export const Player: React.FC<Props> = ({ videos }) => {
 
   const [clips, setClips] = useState<Clip[]>([]);
   const [champion, setChampion] = useState<string>(null);
+  const [championsList, setChampionsList] = useState<any[]>([]);
+  const [activeChampions, setActiveChampions] = useState<any>(null);
   const [popover, setPopOver] = useState(null);
   const [bookmarks, setBookmarks] = useState<BookmarkInterface[]>([]);
   const [currentZoom, setZoom] = useState(0);
@@ -46,6 +49,7 @@ export const Player: React.FC<Props> = ({ videos }) => {
   const [playbackClips, setPlaybackClips] = useState(-1);
   const clipsRef = useRef<HTMLDivElement[]>([]);
   const bookmarksRef = useRef<HTMLDivElement[]>([]);
+   const latestLeagueVersion = useLatestLeagueVersion('League of Legends');
 
   const contextMenuCtx = useContext(ContextMenuContext);
   const modalCtx = useContext(ModalContext);
@@ -381,7 +385,30 @@ export const Player: React.FC<Props> = ({ videos }) => {
     }
 
     if (videoMetadataBookmarks[`/${video}`]) {
-      setBookmarks(videoMetadataBookmarks[`/${video}`].bookmarks);
+      const bm = videoMetadataBookmarks[`/${video}`];
+      for(const bookmark of bm.bookmarks) {
+        if(bookmark.meta){
+          const {killerName, victimChamp} = bookmark.meta;
+          if(killerName === "Character_Seraphine_Name")
+            bookmark.meta.killerName = "Seraphine";
+                  if(victimChamp === "Character_Seraphine_Name")
+            bookmark.meta.victimChamp = "Seraphine";
+        }
+      }
+      setBookmarks(bm.bookmarks);
+      const champions = [];
+
+      for(const bookmark of bm.bookmarks) {
+        if(bookmark.meta){
+          const {killerName, victimChamp} = bookmark.meta;
+          for(const e of [killerName, victimChamp].filter(e => typeof e === "string" && e.length)){
+            if(!champions.includes(e))
+              champions.push(e);
+          }
+        }
+      }
+      console.log(champions)
+      setChampionsList(champions);
     }
   }
 
@@ -518,6 +545,13 @@ export const Player: React.FC<Props> = ({ videos }) => {
               bookmarks
                 .reduce(
                   (acc, val) => {
+                    if(activeChampions){
+                      if(val.meta){
+                        const {killerName, victimChamp} = val.meta;
+                        if(!activeChampions.includes(killerName) && !activeChampions.includes(victimChamp))
+                          return acc;
+                      }
+                    }
                     if (acc.latest === null || val.time !== acc.latest) {
                       acc.data.push(val);
                       acc.latest = val.time;
@@ -543,6 +577,7 @@ export const Player: React.FC<Props> = ({ videos }) => {
                       stack={bookmark.stack || []}
                       setPopOver={setPopOver}
                       champion={champion}
+                      activeChampions={activeChampions}
                     />
                   );
                 })}
@@ -752,6 +787,49 @@ export const Player: React.FC<Props> = ({ videos }) => {
                 videoElement.current?.duration || 0,
               )}`}
             </span>
+            {championsList.length ? 
+            <div className='relative z-40 inline-block text-left dropdown'>
+              <button
+                title={"Champions"}
+                className='-mt-0.5 mb-0.5 inline-block align-middle w-auto h-full px-4 py-2 text-sm font-medium leading-5 text-gray-700 transition duration-150 ease-in-out bg-white hover:bg-gray-200 hover:text-gray-700 active:bg-gray-50 active:text-gray-800'
+                type='button'
+                aria-haspopup='true'
+                aria-expanded='true'
+                aria-controls='headlessui-menu-items-118'
+              >
+                Champions
+              </button>
+              <div className='absolute -top-1/3 opacity-0 invisible dropdown-menu transition-all duration-300 transform'>
+                <div
+                  className='absolute transform -translate-y-full left-0 w-auto origin-top-left bg-white border border-gray-200 divide-y divide-gray-100 rounded-md shadow-lg outline-none'
+                  aria-labelledby='headlessui-menu-button-1'
+                  id='headlessui-menu-items-118'
+                  role='menu'
+                  style={{minWidth: "150px"}}
+                >
+                 {championsList.map(champ =>  <div
+                    key={champ}
+                    style={{opacity: !activeChampions || activeChampions.includes(champ) ? 1 : 0.5, alignItems: "center"}}
+                    className='cursor-pointer text-gray-700 flex w-full px-4 py-2 text-sm text-left'
+                    onClick={() => {
+                      if(!activeChampions){
+                        setActiveChampions([champ]);
+                        return;
+                      }
+                      if(activeChampions.includes(champ)){
+                        const filtered = activeChampions.filter(e => e !== champ);
+                        setActiveChampions(filtered.length ? filtered : null);
+                      } else {
+                        setActiveChampions([...activeChampions, champ]);
+                      }
+                    }}
+                  >
+                    <img style={{width: "32px", height: "auto"}} src={`https://ddragon.leagueoflegends.com/cdn/${latestLeagueVersion}/img/champion/${champ}.png`} /> <span>{champ}</span>
+                  </div>)}
+                </div>
+              </div>
+            </div> : null}
+
           </div>
         </div>
 
